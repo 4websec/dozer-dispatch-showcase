@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dozer Dispatch — case study | Karman Line AI</title>
+<meta name="description" content="How we built Dozer Dispatch: a voice-first shop companion that answers from your own manual in seconds. Field-validated by working service techs. A case study by Karman Line AI, LLC.">
+<meta name="theme-color" content="#161B1F">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Dozer Dispatch — case study">
+<meta property="og:description" content="A voice-first shop companion that answers from your own manual in seconds. Field-validated by working service techs. Case study by Karman Line AI, LLC.">
+<meta property="og:url" content="https://4websec.github.io/dozer-dispatch-showcase/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='27' fill='%23161B1F' stroke='%2333414A' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='27' fill='none' stroke='%23F2A43A' stroke-width='3' stroke-linecap='round' stroke-dasharray='34 136' stroke-dashoffset='-8'/%3E%3Cpath d='M24 20 L40 32 L24 44' fill='none' stroke='%23F2A43A' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='44' cy='32' r='3.2' fill='%23FFC978'/%3E%3C/svg%3E">
+<style>
+  @font-face{font-family:Saira;src:url("assets/fonts/saira-800.woff2") format("woff2");font-weight:800;font-style:normal;font-display:swap}
+  @font-face{font-family:Saira;src:url("assets/fonts/saira-600.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+  @font-face{font-family:Archivo;src:url("assets/fonts/archivo-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+  @font-face{font-family:Archivo;src:url("assets/fonts/archivo-500.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+  @font-face{font-family:Archivo;src:url("assets/fonts/archivo-600.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+  @font-face{font-family:Mono;src:url("assets/fonts/mono-700.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
+  @font-face{font-family:Mono;src:url("assets/fonts/mono-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+
+  :root{
+    --steel-900:#0F1417; --steel-850:#12181C; --steel:#161B1F;
+    --panel:#1E262B; --panel-2:#242E34; --panel-3:#2C363C;
+    --line-soft:#283238; --line:#33414A; --line-2:#3E4E58;
+    --amber-hi:#FFC978; --amber:#F2A43A; --amber-dim:#8A6A34; --amber-deep:#5A4620;
+    --amber-glow:rgba(242,164,58,.45);
+    --ink:#ECE7DB; --ink-dim:#CFD6DA; --mute:#93A1A9; --mute-2:#87949C; --mute-3:#4A575E;
+    --phos:#BFE9C8;
+    --r-1:2px; --r-2:3px; --r-3:5px; --r-4:8px;
+  }
+  .engraved-bezel{
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border-radius:var(--r-4);
+    box-shadow:inset 0 1px 0 var(--line-2),inset 0 -1px 0 var(--line-soft),0 20px 50px -30px #000;
+  }
+  .lcd{position:relative;background:var(--steel-900);border:1px solid #0A0E10;border-radius:var(--r-3);
+    padding:16px 16px 14px;box-shadow:inset 0 2px 10px #000, inset 0 0 0 1px var(--line-soft)}
+  .lcd::before{content:"";position:absolute;inset:0;border-radius:var(--r-3);pointer-events:none;opacity:.5;
+    background:repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 2px, rgba(0,0,0,.28) 2px 3px)}
+  .lcd > *{position:relative;z-index:1}
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:Archivo,system-ui,sans-serif;line-height:1.6;color:var(--ink);
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;letter-spacing:.005em;
+    background-color:var(--steel);
+    background-image:radial-gradient(120% 90% at 100% 0%, rgba(242,164,58,.10), transparent 55%),
+      repeating-linear-gradient(90deg,rgba(255,255,255,.010) 0 1px, rgba(0,0,0,0) 1px 3px);
+    background-attachment:fixed}
+  h1,h2,h3{font-family:Saira;font-weight:800;text-transform:uppercase;line-height:.94;
+    letter-spacing:.01em;margin:0;color:var(--ink)}
+  h1{font-size:clamp(2.6rem,9vw,4.6rem)}
+  h2{font-size:clamp(1.7rem,5.5vw,2.6rem)}
+  h3{font-size:1.3rem}
+  p{margin:0;color:var(--ink-dim)}
+  a{color:inherit}
+  strong,b{font-weight:600;color:var(--ink)}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px}
+  .eyebrow{font-family:Mono;font-weight:700;font-size:.72rem;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--amber);margin:0}
+  .amber{color:var(--amber)}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:var(--r-1)}
+
+  header.bar{position:sticky;top:0;z-index:20;background:rgba(22,27,31,.82);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .bar .wrap{display:flex;align-items:center;justify-content:space-between;height:58px;gap:14px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:Saira;font-weight:800;
+    text-transform:uppercase;letter-spacing:.04em;font-size:1.1rem;color:var(--ink)}
+  .brand .mark{flex:0 0 auto;filter:drop-shadow(0 0 6px rgba(242,164,58,.35))}
+  .bar .links{display:flex;gap:8px;align-items:center}
+  .bar a.mini{font-family:Mono;font-size:.7rem;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;text-decoration:none;color:var(--mute);
+    border:1px solid var(--line);padding:8px 13px;border-radius:var(--r-1)}
+  .bar a.mini:hover{color:var(--ink);border-color:var(--amber-dim)}
+  .bar a.mini.hot{color:#20160a;background:var(--amber);border-color:var(--amber)}
+
+  .hero{padding:60px 0 26px}
+  .hero .tagline{margin-bottom:16px}
+  .hero h1{max-width:16ch}
+  .hero .sub{font-family:Archivo;font-weight:500;font-size:1.12rem;color:var(--ink-dim);
+    margin-top:20px;max-width:56ch}
+  .cta-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:26px}
+  .btn{font-family:Mono;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:.82rem;
+    text-decoration:none;padding:14px 22px;border-radius:var(--r-2);display:inline-flex;align-items:center;
+    gap:9px;transition:transform .1s,box-shadow .2s,border-color .2s}
+  .btn.primary{background:var(--amber);color:#20160a}
+  .btn.primary:hover{transform:translateY(-1px);box-shadow:0 6px 24px -6px rgba(242,164,58,.6)}
+  .btn.ghost{color:var(--ink);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--amber-dim)}
+
+  .band{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel)}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line)}
+  .stat{background:var(--panel);padding:20px 18px}
+  .stat .n{font-family:Saira;font-weight:800;font-size:2rem;color:var(--amber);line-height:1}
+  .stat .l{font-family:Mono;font-weight:700;font-size:.66rem;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--mute);margin-top:7px}
+
+  section.blk{padding:56px 0;border-bottom:1px solid var(--line)}
+  .sec-eyebrow{margin-bottom:13px}
+  .sec-lede{font-family:Archivo;font-weight:500;color:var(--ink-dim);margin-top:14px;
+    max-width:58ch;font-size:1.05rem}
+  .prose p+p{margin-top:14px}
+  .prose{margin-top:16px;max-width:62ch}
+
+  .cards{display:grid;gap:14px;margin-top:30px}
+  .card{padding:22px;position:relative}
+  .card .k{font-family:Mono;font-weight:700;font-size:.66rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--amber)}
+  .card h3{margin-top:11px}
+  .card p{margin-top:9px;font-size:.97rem}
+
+  .quotes{display:grid;gap:14px;margin-top:30px}
+  .q{padding:22px}
+  .q p{font-size:1.04rem;color:var(--ink)}
+  .q .who{display:block;margin-top:14px;font-family:Mono;font-weight:700;font-size:.68rem;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--amber)}
+  .bigq{margin-top:26px;font-family:Saira;font-weight:800;text-transform:uppercase;
+    font-size:clamp(1.6rem,5vw,2.4rem);color:var(--amber);letter-spacing:.02em;line-height:1.05;
+    text-shadow:0 0 18px var(--amber-glow)}
+  .bigq span{display:block;font-family:Mono;font-weight:700;font-size:.7rem;letter-spacing:.14em;
+    color:var(--mute);text-shadow:none;margin-top:10px}
+
+  .stack{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+  .chip{font-family:Mono;font-weight:700;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--mute);border:1px solid var(--line);padding:7px 12px;border-radius:var(--r-1);
+    background:var(--panel)}
+  .chip b{color:var(--amber-hi)}
+
+  .log{margin-top:28px;border-left:2px solid var(--line);padding-left:22px;display:grid;gap:22px}
+  .log .item{position:relative}
+  .log .item::before{content:"";position:absolute;left:-27px;top:5px;width:9px;height:9px;border-radius:50%;
+    background:var(--amber);box-shadow:0 0 8px 1px var(--amber-glow)}
+  .log .when{font-family:Mono;font-weight:700;font-size:.66rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--amber)}
+  .log h3{font-size:1.12rem;margin-top:5px}
+  .log p{margin-top:6px;font-size:.96rem}
+
+  .roadmap{display:grid;gap:12px;margin-top:26px}
+  .rm{display:grid;grid-template-columns:110px 1fr;gap:0;border-bottom:1px solid var(--line)}
+  .rm:last-child{border-bottom:0}
+  .rm .st{font-family:Mono;font-weight:700;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--amber-hi);padding:16px 0;align-self:start}
+  .rm .bd{padding:16px 0 16px 16px;border-left:1px solid var(--line)}
+  .rm .bd h3{font-size:1.05rem}
+  .rm .bd p{margin-top:5px;font-size:.94rem}
+
+  footer{background:var(--panel);padding:34px 0 44px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:14px 20px;justify-content:space-between;align-items:center}
+  footer .c{font-family:Mono;font-weight:400;font-size:.72rem;color:var(--mute-2);letter-spacing:.04em}
+  footer .c a{color:var(--mute)}
+  .disclaimer{font-family:Mono;font-size:.66rem;color:var(--mute-3);letter-spacing:.03em;
+    margin-top:14px;max-width:70ch;line-height:1.6}
+
+  @media(min-width:720px){
+    .stats{grid-template-columns:repeat(4,1fr)}
+    .cards{grid-template-columns:repeat(2,1fr)}
+    .quotes{grid-template-columns:repeat(3,1fr)}
+    .hero{padding:84px 0 40px}
+  }
+  @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 64 64" width="24" height="24" role="img" aria-label="Dozer Dispatch" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#33414A" stroke-width="3"/>
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#F2A43A" stroke-width="3" stroke-linecap="round" stroke-dasharray="34 136" stroke-dashoffset="-8"/>
+        <path d="M24 20 L40 32 L24 44" fill="none" stroke="#F2A43A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="44" cy="32" r="3.2" fill="#FFC978"/>
+      </svg>
+      Dozer Dispatch
+    </div>
+    <div class="links">
+      <a class="mini" href="#log">Build log</a>
+      <a class="mini hot" href="https://dozerdispatch.com/" target="_blank" rel="noopener">See it live ↗</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow tagline">Case study · Karman Line AI, LLC · Field-validated prototype</p>
+    <h1>The shop hand who has read <span class="amber">every manual.</span></h1>
+    <p class="sub">Dozer Dispatch is a voice-first shop companion. Upload the manual for any machine and ask it out loud — hands-free at the bench. It reads the spec back, jumps to the cited page, reads a photo of the part, and when the fix isn't in the book, talks you through it anyway. This is how we built it, and what the techs who tried it said.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="https://dozerdispatch.com/" target="_blank" rel="noopener">See it live ↗</a>
+      <a class="btn ghost" href="#story">Read the story ↓</a>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="band">
+  <div class="wrap" style="padding:0">
+    <div class="stats">
+      <div class="stat"><div class="n">~695</div><div class="l">machines in catalog</div></div>
+      <div class="stat"><div class="n">634</div><div class="l">manuals ingested clean</div></div>
+      <div class="stat"><div class="n">~4×</div><div class="l">faster ingestion pipeline</div></div>
+      <div class="stat"><div class="n">Any</div><div class="l">brand · any model</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PROBLEM -->
+<section class="blk" id="story">
+  <div class="wrap">
+    <p class="eyebrow sec-eyebrow">The problem</p>
+    <h2>The answer's in the manual. Finding it isn't.</h2>
+    <div class="prose">
+      <p>A service tech with a machine down has two bad options: dig through a thousand-page PDF with greasy gloves, or sit through a twelve-minute YouTube video hoping the spec is buried somewhere near the end. Both cost the one thing a shop bills for — time on the machine.</p>
+      <p>Dozer Dispatch removes the dig. You talk; it answers from <em>your</em> manual, cites the page, and keeps working the problem with you. The knowledge was always there. We just made it answer back.</p>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT -->
+<section class="blk">
+  <div class="wrap">
+    <p class="eyebrow sec-eyebrow">What it does</p>
+    <h2>A companion, not a search box.</h2>
+    <p class="sec-lede">Everything runs off the manual you already own — so the answers are your machine's, not the internet's.</p>
+    <div class="cards">
+      <div class="card engraved-bezel">
+        <div class="k">Talk it through</div>
+        <h3>Voice-first, hands-free</h3>
+        <p>Ask out loud at the bench. Dispatch finds it in your manual, reads it back, and jumps the cited page open on screen.</p>
+      </div>
+      <div class="card engraved-bezel">
+        <div class="k">Off the page</div>
+        <h3>Troubleshoots past the book</h3>
+        <p>When the fix isn't written down, it reasons through it with you — the difference between a search tool and a shop partner.</p>
+      </div>
+      <div class="card engraved-bezel">
+        <div class="k">Show it</div>
+        <h3>Reads a photo of the part</h3>
+        <p>Point your phone at the leak, the wear, the seal. Dispatch reads the picture against your manual and logs what it sees.</p>
+      </div>
+      <div class="card engraved-bezel">
+        <div class="k">Remembers</div>
+        <h3>Picks up where you left off</h3>
+        <p>Pause to grab a meter; resume and it's still on the same job. Every machine keeps its own history, tied to your profile.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VALIDATION -->
+<section class="blk">
+  <div class="wrap">
+    <p class="eyebrow sec-eyebrow">Field validation</p>
+    <h2>We put it on the bench. Here's the verdict.</h2>
+    <p class="sec-lede">Two working techs — heavy equipment and powersports — ran Dozer Dispatch on real jobs. In their words:</p>
+    <div class="quotes">
+      <div class="q engraved-bezel">
+        <p>“It troubleshoots in seconds instead of waiting on a YouTube video. It just answers it — you're not wasting time.”</p>
+        <span class="who">Daniel · heavy-equipment mechanic</span>
+      </div>
+      <div class="q engraved-bezel">
+        <p>“Even when it's not in the manual, it tells you how to get around it. It's not in the book, but we can figure it out.”</p>
+        <span class="who">Daniel · heavy-equipment mechanic</span>
+      </div>
+      <div class="q engraved-bezel">
+        <p>“You could sell this to anyone doing Polaris side-by-sides, four-wheelers, go-karts.”</p>
+        <span class="who">Brian · powersports tech</span>
+      </div>
+    </div>
+    <p class="bigq">“It's a million-dollar app.”<span>— Daniel, on the first full run</span></p>
+  </div>
+</section>
+
+<!-- UNDER THE HOOD -->
+<section class="blk">
+  <div class="wrap">
+    <p class="eyebrow sec-eyebrow">Under the hood</p>
+    <h2>Built to feel instant, engineered to scale.</h2>
+    <div class="prose">
+      <p>The hard parts are invisible on purpose. Voice runs on a self-hosted streaming SDK with a signed-URL handshake, so a private agent talks in real time and a soft-pause mutes the mic without dropping the session or its memory. Answers are retrieved from a per-machine vector index built out of the manual's own pages, so every reply can cite where it came from — and each call is summarized back into the user's profile so the next conversation already knows the machine.</p>
+      <p>Getting there meant ingesting the manuals at scale. The original pipeline read one manual at a time on a single core. We parallelized it across processes — roughly <strong>4× faster</strong> — added watermark scrubbing and an OCR-quality gate for rough scans, and took the shared catalog to <strong>~695 machines</strong> across <strong>634 cleanly-ingested manuals</strong>, spanning fifty-plus brands.</p>
+    </div>
+    <div class="stack">
+      <span class="chip"><b>Voice</b> · ElevenLabs Convai + self-hosted SDK</span>
+      <span class="chip"><b>Retrieval</b> · vector search, page-cited</span>
+      <span class="chip"><b>Backend</b> · FastAPI</span>
+      <span class="chip"><b>Ingestion</b> · parallel OCR pipeline</span>
+      <span class="chip"><b>Vision</b> · photo diagnosis</span>
+      <span class="chip"><b>Memory</b> · per-user, per-machine</span>
+    </div>
+  </div>
+</section>
+
+<!-- THESIS + ROADMAP -->
+<section class="blk">
+  <div class="wrap">
+    <p class="eyebrow sec-eyebrow">The thesis</p>
+    <h2>Any manual. We started with the ones that move dirt.</h2>
+    <p class="sec-lede">Dozers are the launch niche, not the ceiling. The system reads whatever document you give it — the same engine answers for powersports, forklifts, or a car in the driveway. The techs saw it before we said it out loud.</p>
+    <div class="roadmap">
+      <div class="rm"><div class="st">Shipped</div><div class="bd"><h3>Heavy equipment, field-validated</h3><p>Voice, photo diagnosis, page-cited answers, cross-session memory, a ~695-machine shared catalog.</p></div></div>
+      <div class="rm"><div class="st">Next</div><div class="bd"><h3>Powersports</h3><p>Evidence-backed: the sharpest time-saved example on the calls was a side-by-side torque spec, and a powersports tech asked for it by name. He becomes the design partner.</p></div></div>
+      <div class="rm"><div class="st">Horizon</div><div class="bd"><h3>Forklifts · auto · beyond</h3><p>Every trade with a manual and a tech who bills by the hour. One platform, many editions.</p></div></div>
+      <div class="rm"><div class="st">Model</div><div class="bd"><h3>SaaS · veteran-built</h3><p>A subscription for shops and owner-operators. Built by Karman Line AI, LLC — a service-disabled veteran-owned small business.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- BUILD LOG (living) -->
+<section class="blk" id="log">
+  <div class="wrap">
+    <p class="eyebrow sec-eyebrow">Build log · updated as we go</p>
+    <h2>What we shipped, in order.</h2>
+    <div class="log">
+      <div class="item">
+        <div class="when">Aug 2026</div>
+        <h3>Field validation by working techs</h3>
+        <p>A heavy-equipment mechanic and a powersports tech ran Dispatch on real jobs — pause/resume, page-jump citations, photo diagnosis, and beyond-the-manual troubleshooting all confirmed working. Verdict: “a million-dollar app.”</p>
+      </div>
+      <div class="item">
+        <div class="when">Aug 2026</div>
+        <h3>Voice pause/resume + durable memory</h3>
+        <p>Reworked pause into a soft-mute that keeps the live session and its memory intact, and made every machine remember where the last conversation left off — tied to the user's profile.</p>
+      </div>
+      <div class="item">
+        <div class="when">Aug 2026</div>
+        <h3>Ingestion parallelized ~4×</h3>
+        <p>Moved from one-manual-at-a-time to a parallel, process-per-manual pipeline with watermark scrubbing and OCR-quality gating. Took the shared catalog to ~695 machines / 634 cleanly-ingested manuals.</p>
+      </div>
+      <div class="item">
+        <div class="when">Aug 2026</div>
+        <h3>Landing page grounded in the field feedback</h3>
+        <p>Rebuilt the front door around the validated message — answers in seconds, a companion that figures out what the book doesn't say — with the techs' own words as proof.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="brand" style="font-size:.98rem">
+      <svg class="mark" viewBox="0 0 64 64" width="20" height="20" role="img" aria-label="Dozer Dispatch" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#33414A" stroke-width="3"/>
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#F2A43A" stroke-width="3" stroke-linecap="round" stroke-dasharray="34 136" stroke-dashoffset="-8"/>
+        <path d="M24 20 L40 32 L24 44" fill="none" stroke="#F2A43A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="44" cy="32" r="3.2" fill="#FFC978"/>
+      </svg>
+      Dozer Dispatch
+    </div>
+    <div class="c">© 2026 <a href="https://karmanline.ai" target="_blank" rel="noopener">Karman Line AI, LLC</a> · <a href="https://dozerdispatch.com/" target="_blank" rel="noopener">dozerdispatch.com</a> · <a href="mailto:dispatch@dozerdispatch.com">dispatch@dozerdispatch.com</a></div>
+  </div>
+  <div class="wrap">
+    <p class="disclaimer">Product names and brands referenced are the property of their respective owners and are used for descriptive purposes only. Field-validation quotes are shared with permission. This is a project case study; the product is an early-access prototype.</p>
+  </div>
+</footer>
+
+</body>
+</html>
